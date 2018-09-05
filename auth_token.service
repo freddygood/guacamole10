@@ -1,0 +1,16 @@
+[Unit]
+Description=Token Authenfication Service
+After=syslog.target
+
+[Service]
+ExecStart=/var/lib/auth_token/app/venv/bin/uwsgi --ini /var/lib/auth_token/app/uwsgi.ini
+WorkingDirectory=/var/lib/auth_token/app
+Restart=always
+KillSignal=SIGQUIT
+Type=notify
+StandardError=syslog
+NotifyAccess=all
+SyslogIdentifier=auth_token
+
+[Install]
+WantedBy=multi-user.target
