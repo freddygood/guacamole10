@@ -1,4 +1,5 @@
 from flask import Flask, Response
+from flask_caching import Cache
 from werkzeug.routing import BaseConverter
 from time import time
 from hashlib import sha1
@@ -6,12 +7,11 @@ import hmac
 
 """
 TODO
-1. caching based on token
 2. logging to files
-3. add actual URL into response
 """
 
 application = Flask(__name__)
+cache = Cache(application, config={'CACHE_TYPE': 'simple'})
 
 import config
 
@@ -20,9 +20,9 @@ expire = getattr(config, 'expire', 30)
 host = getattr(config, 'host', '127.0.0.1')
 port = getattr(config, 'port', 8080)
 debug = getattr(config, 'debug', True)
+cache_timeout = getattr(config, 'cache_timeout', 60)
 
 def log_params(prefix, token, timestamp, dirs, path, file = '', location = ''):
-	# application.logger.debug("{} - Got request parameters:".format(prefix))
 	application.logger.debug("{} - path {}".format(prefix, path))
 	application.logger.debug("{} - token {}".format(prefix, token))
 	application.logger.debug("{} - timestamp {}".format(prefix, timestamp))
@@ -47,12 +47,17 @@ def validate_timestamp(timestamp):
 # file="playlist.m3u8"
 # token=$(echo -n $path$nva_pref$nva$dir_pref$dirs | openssl sha1 -hmac 'H3ll0!S3c&8' -binary | xxd -p | cut -c1-20)
 # echo "/token=nva=$nva~dirs=$dirs~hash=0$token$path$file"
-def validate_token(token, timestamp, path):
-	dirs = path.count('/') + 1
-	signature_line = "/{}/?nva={}&dirs={}".format(path, timestamp, dirs)
-	calculated_token = hmac.new(secret, signature_line, sha1).hexdigest()
+
+def validate_token(token, timestamp, dirs, path):
+	calculated_token = calculate_token(timestamp, dirs, path)
 	log_params('Validating token', calculated_token[0:20], timestamp, dirs, path)
 	return hmac.compare_digest(calculated_token[0:20].encode(), token.encode())
+
+@cache.memoize(timeout=cache_timeout)
+def calculate_token(timestamp, dirs, path):
+	signature_line = "/{}/?nva={}&dirs={}".format(path, timestamp, dirs)
+	application.logger.debug("Calculation token of {}".format(signature_line))
+	return hmac.new(secret, signature_line, sha1).hexdigest()
 
 class RegexConverter(BaseConverter):
 	def __init__(self, url_map, *items):
@@ -74,7 +79,7 @@ def secure_link(token, timestamp, dirs, path, file, location):
 	log_params('Got request parameters', token, timestamp, dirs, path, file, location)
 	response = Response()
 	if validate_timestamp(timestamp):
-		if validate_token(token, timestamp, path):
+		if validate_token(token, timestamp, dirs, path):
 			response.headers['X-Auth-Token-Path'] = path + '/' + file
 			response.headers['X-Auth-Token-Status'] = 'Valid'
 		else:
