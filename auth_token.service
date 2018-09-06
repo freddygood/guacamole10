@@ -1,5 +1,5 @@
 [Unit]
-Description=Token Authenfication Service
+Description=uWSGI Token Authenfication Service
 After=syslog.target
 
 [Service]
