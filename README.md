@@ -33,18 +33,28 @@ echo "$location/token=nva=$nva~dirs=$dirs~hash=0$token$path$file"
 ### Requirements
 
 Python 2.7
+pip
 virtualenv
+git
+
+```
+apt-get update && \
+apt-get install -y python-dev python-pip python-virtualenv git
+```
 
 ### Clone and prepare environment
 
 ```
+set -x
 mkdir -p /var/lib/auth_token
 cd /var/lib/auth_token
 git clone git@github.com:freddygood/guacamole10.git app
 cd app
 virtualenv venv
 . venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
+deactivate
 ```
 
 ### Start application manually
@@ -62,6 +72,13 @@ cp /var/lib/auth_token/app/auth_token.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable auth_token.service
 systemctl restart auth_token.service
+```
+
+### Start application via upstart
+
+```
+cp /var/lib/auth_token/app/auth_token.conf /etc/init/
+start auth_token
 ```
 
 ## Nginx configuration
