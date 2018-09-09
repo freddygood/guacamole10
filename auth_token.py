@@ -15,12 +15,14 @@ cache = Cache(application, config={'CACHE_TYPE': 'simple'})
 
 import config
 
-secret = getattr(config, 'secret', 'my-secret')
 expire = getattr(config, 'expire', 30)
 host = getattr(config, 'host', '127.0.0.1')
 port = getattr(config, 'port', 8080)
 debug = getattr(config, 'debug', True)
 cache_timeout = getattr(config, 'cache_timeout', 60)
+
+secret_default = getattr(config, 'secret_default', 'my-secret')
+secret = getattr(config, 'secret', {})
 
 def log_params(prefix, token, timestamp, dirs, path, file = '', location = ''):
 	application.logger.debug("{} - path {}".format(prefix, path))
@@ -48,16 +50,24 @@ def validate_timestamp(timestamp):
 # token=$(echo -n $path$nva_pref$nva$dir_pref$dirs | openssl sha1 -hmac 'H3ll0!S3c&8' -binary | xxd -p | cut -c1-20)
 # echo "/token=nva=$nva~dirs=$dirs~hash=0$token$path$file"
 
-def validate_token(token, timestamp, dirs, path):
-	calculated_token = calculate_token(timestamp, dirs, path)
+def validate_token(token, timestamp, dirs, path, location):
+	calculated_token = calculate_token(timestamp, dirs, path, location)
 	log_params('Validating token', calculated_token[0:20], timestamp, dirs, path)
 	return hmac.compare_digest(calculated_token[0:20].encode(), token.encode())
 
+def get_secret(location):
+	if location in secret.keys():
+		application.logger.debug("Found secret for location {}".format(location))
+		return secret[location]
+	else:
+		application.logger.debug("Using default secret")
+		return secret_default
+
 @cache.memoize(timeout=cache_timeout)
-def calculate_token(timestamp, dirs, path):
+def calculate_token(timestamp, dirs, path, location):
 	signature_line = "/{}/?nva={}&dirs={}".format(path, timestamp, dirs)
 	application.logger.debug("Calculation token of {}".format(signature_line))
-	return hmac.new(secret, signature_line, sha1).hexdigest()
+	return hmac.new(get_secret(location), signature_line, sha1).hexdigest()
 
 class RegexConverter(BaseConverter):
 	def __init__(self, url_map, *items):
@@ -79,7 +89,7 @@ def secure_link(token, timestamp, dirs, path, file, location):
 	log_params('Got request parameters', token, timestamp, dirs, path, file, location)
 	response = Response()
 	if validate_timestamp(timestamp):
-		if validate_token(token, timestamp, dirs, path):
+		if validate_token(token, timestamp, dirs, path, location):
 			response.headers['X-Auth-Token-Path'] = path + '/' + file
 			response.headers['X-Auth-Token-Status'] = 'Valid'
 		else:
