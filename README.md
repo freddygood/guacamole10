@@ -45,7 +45,7 @@ apt-get install -y python-dev python-pip python-virtualenv git
 ### Clone and prepare environment
 
 ```
-set -x
+set -e
 mkdir -p /var/lib/auth_token
 cd /var/lib/auth_token
 git clone git@github.com:freddygood/guacamole10.git app
@@ -65,25 +65,98 @@ cd /var/lib/auth_token/app
 uwsgi --ini uwsgi.ini
 ```
 
-### Start application via systemd
+### Start application
+
+#### systemd (Ubuntu 16)
 
 ```
 cp /var/lib/auth_token/app/auth_token.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable auth_token.service
-systemctl restart auth_token.service
+systemctl start auth_token.service
 ```
 
-### Start application via upstart
+#### upstart (Ubuntu 14)
 
 ```
 cp /var/lib/auth_token/app/auth_token.conf /etc/init/
 start auth_token
 ```
 
+### Configuration
+
+There is a config file /var/lib/auth_token/app/config.py for configuration standalone application:
+
+```
+host = '0.0.0.0'
+port = 8080
+debug = True
+cache_timeout=60
+
+secret_default = 'qwertyuiop'
+secret = {
+        'testlocationlive': '1234567890',
+        'salloum': 'djdheylsksjlak248du'
+}
+
+```
+
+- cache_timeout - time to cache validate token function (integer)
+- secret_default - default secret (string)
+- secret - secret by location (dict). Used during the validation token. The script matches first part of URL (with no leading slash) with keys of the dictionary. If a key not found the default secret will be used. For example:
+
+- /testlocationlive/token.. - secret `1234567890` will be used
+- /verynicelocation/token.. - secret `qwertyuiop` will be used
+
+There is /var/lib/auth_token/app/uwsgi.ini file for configuration uwsgi daemon:
+
+```
+[uwsgi]
+
+master = true
+module = wsgi
+socket = 0.0.0.0:8080
+processes = 16
+harakiri = 15
+```
+
+- socket - ip and port to listen
+- processes - number of workers, way to scale
+- harakiri - kill and restart worker in case it hangs
+
+The application must be restarted to apply configuration files changes
+
+### Restart the application
+
+#### systemd
+
+```
+systemctl restart auth_token.service
+```
+
+#### upstart
+
+```
+restart auth_token.service
+```
+
+### Deployment
+
+The application might be deployed on the same servers with nginx and on dedicated servers as well.
+
+#### Easy deployment
+
+Each edge server with nginx has it's own instance of application and sends requests to it 127.0.0.1:8080
+
+#### Advanced deployment
+
+There are dedicated servers with the application working in parallel. Requests must be balanced with upstream module in nginx.
+
 ## Nginx configuration
 
-### Auth upstream
+### Upstream definition
+
+Insert the block within http section (before servers definition)
 
 ```
 upstream auth_token {
@@ -92,6 +165,8 @@ upstream auth_token {
 ```
 
 ### Auth location
+
+Create one location per server
 
 ```
 # Auth token common location
@@ -104,7 +179,24 @@ location = /auth_token {
 }
 ```
 
+### Streaming secured location
+
+Create the block per each secured location
+
+```
+# Secured testlocationlive location
+location /testlocationlive/token {
+        auth_request /auth_token;
+        error_page 404 =200 @testlocationlive_auth_passed;
+}
+location @testlocationlive_auth_passed {
+        rewrite ^(/testlocationlive)/token=.*hash=[a-z0-9]+(/.*)$ $1$2 last;
+}
+```
+
 ### Token checking service
+
+Only for dev and test purpose - ability to check validity of token and secured URL without hitting any files
 
 ```
 # Checking token service
@@ -123,17 +215,4 @@ Response code 200 or 403
 
 ```
 curl -sv http://nginx.testcdn.yes/_check_auth_token/token=nva=1537000000~dirs=1~hash=06bffd04a860d31992619/testlive.smil/playlist.m3u8
-```
-
-### Streaming secured location
-
-```
-# Secured testlocationlive location
-location /testlocationlive/token {
-        auth_request /auth_token;
-        error_page 404 =200 @testlocationlive_auth_passed;
-}
-location @testlocationlive _auth_passed {
-        rewrite ^(/testlocationlive)/token=.*hash=[a-z0-9]+(/.*)$ $1$2 last;
-}
 ```
