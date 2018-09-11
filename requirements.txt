@@ -2,3 +2,5 @@ urllib3
 uwsgi
 flask
 flask-caching
+hashlib
+hmac
