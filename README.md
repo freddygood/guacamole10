@@ -48,7 +48,7 @@ apt-get install -y python-dev python-pip python-virtualenv git
 set -e
 mkdir -p /var/lib/auth_token
 cd /var/lib/auth_token
-git clone git@github.com:freddygood/guacamole10.git app
+git clone --depth 1 https://github.com/freddygood/guacamole10.git app
 cd app
 virtualenv venv
 . venv/bin/activate
