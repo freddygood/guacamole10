@@ -53,7 +53,10 @@ def validate_timestamp(timestamp):
 def validate_token(token, timestamp, dirs, path, location):
 	calculated_token = calculate_token(timestamp, dirs, path, location)
 	log_params('Validating token', calculated_token[0:20], timestamp, dirs, path)
-	return hmac.compare_digest(calculated_token[0:20].encode(), token.encode())
+	if (hasattr(hmac, 'compare_digest')):
+		return hmac.compare_digest(calculated_token[0:20].encode(), token.encode())
+	else:
+		return calculated_token[0:20].encode() == token.encode()
 
 def get_secret(location):
 	if location in secret.keys():
