@@ -1,4 +1,4 @@
-from flask import Flask, Response
+from flask import Flask, Response, request
 from flask_caching import Cache
 from werkzeug.routing import BaseConverter
 from time import time
@@ -33,8 +33,6 @@ def validate_timestamp(timestamp):
 	log_param('validate_timestamp', 'timestamp', timestamp)
 	return now < int(timestamp)
 
-def validate_token(token, timestamp, dirs, path, location):
-	calculated_token = calculate_token(timestamp, dirs, path, location)
 """
 creating token signature - bash implementation
 path="/lbclive.smil/"
@@ -51,11 +49,15 @@ token=$(echo -n $path$nva_pref$nva$ip_pref$ip$dir_pref$dirs | openssl sha1 -hmac
 echo "/token=nva=$nva~ip=$ip~dirs=$dirs~hash=0$token$path$file"
 """
 
+def validate_token(token, timestamp, dirs, path, location, remote_addr = ''):
+	calculated_token = calculate_token(timestamp, dirs, path, location, remote_addr)
 	log_param('validate_token', 'token', token)
 	log_param('validate_token', 'calculated', calculated_token[0:20])
 	log_param('validate_token', 'timestamp', timestamp)
 	log_param('validate_token', 'dirs', dirs)
 	log_param('validate_token', 'path', path)
+	log_param('validate_token', 'remote_addr', remote_addr)
+
 	if (hasattr(hmac, 'compare_digest')):
 		return hmac.compare_digest(calculated_token[0:20].encode(), token.encode())
 	else:
@@ -70,8 +72,12 @@ def get_secret(location):
 		return secret_default
 
 @cache.memoize(timeout=cache_timeout)
-def calculate_token(timestamp, dirs, path, location):
-	signature_line = "/{}/?nva={}&dirs={}".format(path, timestamp, dirs)
+def calculate_token(timestamp, dirs, path, location, remote_addr):
+	if remote_addr:
+		signature_line = "/{}/?nva={}&ip={}&dirs={}".format(path, timestamp, remote_addr, dirs)
+	else:
+		signature_line = "/{}/?nva={}&dirs={}".format(path, timestamp, dirs)
+
 	application.logger.debug("Calculation token of {}".format(signature_line))
 	return hmac.new(get_secret(location), signature_line, sha1).hexdigest()
 
@@ -102,6 +108,38 @@ def secure_link(token, timestamp, dirs, path, file, location):
 	response = Response()
 	if validate_timestamp(timestamp):
 		if validate_token(token, timestamp, dirs, path, location):
+			response.headers['X-Auth-Token-Path'] = path + '/' + file
+			response.headers['X-Auth-Token-Status'] = 'Valid'
+		else:
+			application.logger.warning("Token {} is invalid".format(token))
+			response.headers['X-Auth-Token-Status'] = 'Invalid'
+			response.status_code = 403
+	else:
+		application.logger.warning("Timestamp {} is invalid".format(timestamp))
+		response.headers['X-Auth-Token-Status'] = 'Invalid'
+		response.status_code = 403
+
+	return response
+
+# /lbcgrouplive/token=nva=1538337566~ip=127.0.0.1~dirs=1~hash=004acb40fa3d37b94fdcd/lbclive.smil/playlist.m3u8
+@application.route('/<location>/token=nva=<timestamp>~ip=<ip>~dirs=<int:dirs>~hash=0<token>/<path:path>/<file>', methods=['GET'])
+def secure_link_ip(token, timestamp, ip, dirs, path, file, location):
+	log_param('secure_link_ip', 'token', token)
+	log_param('secure_link_ip', 'timestamp', timestamp)
+	log_param('secure_link_ip', 'ip', ip)
+	log_param('secure_link_ip', 'dirs', dirs)
+	log_param('secure_link_ip', 'path', path)
+	log_param('secure_link_ip', 'file', file)
+	log_param('secure_link_ip' ,'location', location)
+
+	if request.headers.getlist("X-Forwarded-For"):
+		remote_addr = request.headers.getlist("X-Forwarded-For")[0]
+	else:
+		remote_addr = request.remote_addr
+	log_param('secure_link_ip', 'remote_addr', remote_addr)
+	response = Response()
+	if validate_timestamp(timestamp):
+		if validate_token(token, timestamp, dirs, path, location, remote_addr):
 			response.headers['X-Auth-Token-Path'] = path + '/' + file
 			response.headers['X-Auth-Token-Status'] = 'Valid'
 		else:
