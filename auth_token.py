@@ -33,18 +33,24 @@ def validate_timestamp(timestamp):
 	log_param('validate_timestamp', 'timestamp', timestamp)
 	return now < int(timestamp)
 
-# creating token signature - bash implementation
-# path="/lbclive.smil/"
-# nva_pref="?nva="
-# nva="1538337566"
-# dir_pref="&dirs="
-# dirs="1"
-# file="playlist.m3u8"
-# token=$(echo -n $path$nva_pref$nva$dir_pref$dirs | openssl sha1 -hmac 'H3ll0!S3c&8' -binary | xxd -p | cut -c1-20)
-# echo "/token=nva=$nva~dirs=$dirs~hash=0$token$path$file"
-
 def validate_token(token, timestamp, dirs, path, location):
 	calculated_token = calculate_token(timestamp, dirs, path, location)
+"""
+creating token signature - bash implementation
+path="/lbclive.smil/"
+nva_pref="?nva="
+nva="1540000000"
+ip_pref="?ip="
+ip="127.0.0.1"
+dir_pref="&dirs="
+dirs="1"
+file="playlist.m3u8"
+token=$(echo -n $path$nva_pref$nva$dir_pref$dirs | openssl sha1 -hmac 'H3ll0!S3c&8' -binary | xxd -p | cut -c1-20)
+echo "/token=nva=$nva~dirs=$dirs~hash=0$token$path$file"
+token=$(echo -n $path$nva_pref$nva$ip_pref$ip$dir_pref$dirs | openssl sha1 -hmac 'H3ll0!S3c&8' -binary | xxd -p | cut -c1-20)
+echo "/token=nva=$nva~ip=$ip~dirs=$dirs~hash=0$token$path$file"
+"""
+
 	log_param('validate_token', 'token', token)
 	log_param('validate_token', 'calculated', calculated_token[0:20])
 	log_param('validate_token', 'timestamp', timestamp)
