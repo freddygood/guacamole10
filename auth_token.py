@@ -90,7 +90,7 @@ def index():
 	return response
 
 # /lbcgrouplive/token=nva=1538337566~dirs=1~hash=004acb40fa3d37b94fdcd/lbclive.smil/playlist.m3u8
-@application.route('/<location>/token=nva=<timestamp>~dirs=<int:dirs>~hash=0<token>/<path:path>/<file>')
+@application.route('/<location>/token=nva=<timestamp>~dirs=<int:dirs>~hash=0<token>/<path:path>/<file>', methods=['GET'])
 def secure_link(token, timestamp, dirs, path, file, location):
 	log_param('secure_link', 'token', token)
 	log_param('secure_link', 'timestamp', timestamp)
