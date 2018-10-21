@@ -8,12 +8,20 @@
 secret='1234567890'
 location="/testlocationlive"
 path="/testlive.smil/"
-nva_pref="?nva="
 nva="1538337566"
-dir_pref="&dirs="
 dirs="1"
 file="playlist.m3u8"
 token=$(echo -n ${path}?nva=${nva}&dirs=${dirs} | openssl sha1 -hmac $secret -binary | xxd -p | cut -c1-20)
+```
+```
+secret='1234567890'
+location="/testlocationlive"
+path="/testlive.smil/"
+nva="1538337566"
+ip="127.0.0.1"
+dirs="1"
+file="playlist.m3u8"
+token=$(echo -n ${path}?nva=${nva}&ip=${ip}&dirs=${dirs} | openssl sha1 -hmac $secret -binary | xxd -p | cut -c1-20)
 ```
 
 ### Creating URL
@@ -21,11 +29,17 @@ token=$(echo -n ${path}?nva=${nva}&dirs=${dirs} | openssl sha1 -hmac $secret -bi
 ```
 echo "$location/token=nva=$nva~dirs=$dirs~hash=0$token$path$file"
 ```
+```
+echo "$location/token=nva=$nva~ip=$ip~dirs=$dirs~hash=0$token$path$file"
+```
 
 ### URL example
 
 ```
 /testlocationlive/token=nva=1538337566~dirs=1~hash=004acb40fa3d37b94fdcd/testlive.smil/playlist.m3u8
+```
+```
+/testlocationlive/token=nva=1538337566~ip=127.0.0.1~dirs=1~hash=004acb40fa3d37b94fdcd/testlive.smil/playlist.m3u8
 ```
 
 ## Application
