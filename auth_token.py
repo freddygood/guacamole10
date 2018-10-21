@@ -24,20 +24,13 @@ cache_timeout = getattr(config, 'cache_timeout', 60)
 secret_default = getattr(config, 'secret_default', 'my-secret')
 secret = getattr(config, 'secret', {})
 
-def log_params(prefix, token, timestamp, dirs, path, file = '', location = ''):
-	application.logger.debug("{} - path {}".format(prefix, path))
-	application.logger.debug("{} - token {}".format(prefix, token))
-	application.logger.debug("{} - timestamp {}".format(prefix, timestamp))
-	application.logger.debug("{} - dirs {}".format(prefix, dirs))
-	if (file):
-		application.logger.debug("{} - file {}".format(prefix, file))
-	if (location):
-		application.logger.debug("{} - location {}".format(prefix, location))
+def log_param(func, prefix, param):
+	application.logger.debug("{}: {} = {}".format(func, prefix, param))
 
 def validate_timestamp(timestamp):
 	now = int(time())
-	application.logger.debug("Validating timestamp - now {}".format(now))
-	application.logger.debug("Validating timestamp - timestamp {}".format(timestamp))
+	log_param('validate_timestamp', 'now', now)
+	log_param('validate_timestamp', 'timestamp', timestamp)
 	return now < int(timestamp)
 
 # creating token signature - bash implementation
@@ -52,7 +45,11 @@ def validate_timestamp(timestamp):
 
 def validate_token(token, timestamp, dirs, path, location):
 	calculated_token = calculate_token(timestamp, dirs, path, location)
-	log_params('Validating token', calculated_token[0:20], timestamp, dirs, path)
+	log_param('validate_token', 'token', token)
+	log_param('validate_token', 'calculated', calculated_token[0:20])
+	log_param('validate_token', 'timestamp', timestamp)
+	log_param('validate_token', 'dirs', dirs)
+	log_param('validate_token', 'path', path)
 	if (hasattr(hmac, 'compare_digest')):
 		return hmac.compare_digest(calculated_token[0:20].encode(), token.encode())
 	else:
@@ -89,7 +86,13 @@ def index():
 # /lbcgrouplive/token=nva=1538337566~dirs=1~hash=004acb40fa3d37b94fdcd/lbclive.smil/playlist.m3u8
 @application.route('/<location>/token=nva=<timestamp>~dirs=<int:dirs>~hash=0<token>/<path:path>/<file>')
 def secure_link(token, timestamp, dirs, path, file, location):
-	log_params('Got request parameters', token, timestamp, dirs, path, file, location)
+	log_param('secure_link', 'token', token)
+	log_param('secure_link', 'timestamp', timestamp)
+	log_param('secure_link', 'dirs', dirs)
+	log_param('secure_link', 'path', path)
+	log_param('secure_link', 'file', file)
+	log_param('secure_link', 'location', location)
+
 	response = Response()
 	if validate_timestamp(timestamp):
 		if validate_token(token, timestamp, dirs, path, location):
