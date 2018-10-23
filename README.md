@@ -51,9 +51,15 @@ pip
 virtualenv
 git
 
+#### Ubuntu
 ```
 apt-get update && \
 apt-get install -y python-dev python-pip python-virtualenv git
+```
+
+#### RHEL7 / CentOS7
+```
+yum install -y python-devel python2-pip python-virtualenv git
 ```
 
 ### Clone and prepare environment
@@ -81,7 +87,7 @@ uwsgi --ini uwsgi.ini
 
 ### Start application
 
-#### systemd (Ubuntu 16)
+#### systemd (Ubuntu 16) / RHEL7 / CentOS7
 
 ```
 cp /var/lib/auth_token/app/auth_token.service /etc/systemd/system/
