@@ -50,19 +50,24 @@ Python 2.7
 pip
 virtualenv
 git
+gcc
 
 #### Ubuntu
+
 ```
 apt-get update && \
 apt-get install -y python-dev python-pip python-virtualenv git
 ```
 
 #### RHEL7 / CentOS7
+
 ```
-yum install -y python-devel python2-pip python-virtualenv git
+yum install -y python-devel python2-pip python-virtualenv git gcc
 ```
 
 ### Clone and prepare environment
+
+#### Common part
 
 ```
 set -e
@@ -73,7 +78,19 @@ cd app
 virtualenv venv
 . venv/bin/activate
 pip install --upgrade pip
+```
+
+#### Ubuntu
+
+```
 pip install -r requirements.txt
+deactivate
+```
+
+#### RHEL7 / CentOS7
+
+```
+pip install -r requirements-rhel.txt
 deactivate
 ```
 
