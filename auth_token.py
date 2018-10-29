@@ -4,6 +4,7 @@ from werkzeug.routing import BaseConverter
 from time import time
 from hashlib import sha1
 import hmac
+import geoip2.database
 
 """
 TODO
@@ -24,6 +25,8 @@ cache_timeout = getattr(config, 'cache_timeout', 60)
 secret_default = getattr(config, 'secret_default', 'my-secret')
 secret = getattr(config, 'secret', {})
 
+geoip_blacklist = getattr(config, 'geoip_blacklist', [])
+
 def log_param(func, prefix, param):
 	application.logger.debug("{}: {} = {}".format(func, prefix, param))
 
@@ -32,6 +35,25 @@ def validate_timestamp(timestamp):
 	log_param('validate_timestamp', 'now', now)
 	log_param('validate_timestamp', 'timestamp', timestamp)
 	return now < int(timestamp)
+
+@cache.memoize(timeout=cache_timeout)
+def validate_geoip(remote_addr):
+	log_param('validate_geoip', 'remote_addr', remote_addr)
+	if remote_addr == '127.0.0.1':
+		return True
+
+	reader = geoip2.database.Reader('GeoLite2/GeoLite2-Country.mmdb')
+	try:
+		response = reader.country(remote_addr)
+	except Exception as e:
+		application.logger.error(e)
+		return True
+
+	log_param('validate_geoip', 'country', response.country.iso_code)
+	if response.country.iso_code not in geoip_blacklist:
+		return True
+	else:
+		return False
 
 """
 creating token signature - bash implementation
@@ -105,14 +127,25 @@ def secure_link(token, timestamp, dirs, path, file, location):
 	log_param('secure_link', 'file', file)
 	log_param('secure_link', 'location', location)
 
+	if request.headers.getlist("X-Forwarded-For"):
+		remote_addr = request.headers.getlist("X-Forwarded-For")[0]
+	else:
+		remote_addr = request.remote_addr
+	log_param('secure_link', 'remote_addr', remote_addr)
+
 	response = Response()
 	if validate_timestamp(timestamp):
-		if validate_token(token, timestamp, dirs, path, location):
-			response.headers['X-Auth-Token-Path'] = path + '/' + file
-			response.headers['X-Auth-Token-Status'] = 'Valid'
+		if validate_geoip(remote_addr):
+			if validate_token(token, timestamp, dirs, path, location):
+				response.headers['X-Auth-Token-Path'] = path + '/' + file
+				response.headers['X-Auth-Token-Status'] = 'Valid'
+			else:
+				application.logger.warning("Token {} is invalid".format(token))
+				response.headers['X-Auth-Token-Status'] = 'Invalid'
+				response.status_code = 403
 		else:
-			application.logger.warning("Token {} is invalid".format(token))
-			response.headers['X-Auth-Token-Status'] = 'Invalid'
+			application.logger.warning("IP address {} is blacklisted".format(remote_addr))
+			response.headers['X-Auth-Token-Status'] = 'IP Blacklisted'
 			response.status_code = 403
 	else:
 		application.logger.warning("Timestamp {} is invalid".format(timestamp))
@@ -137,18 +170,41 @@ def secure_link_ip(token, timestamp, ip, dirs, path, file, location):
 	else:
 		remote_addr = request.remote_addr
 	log_param('secure_link_ip', 'remote_addr', remote_addr)
+
 	response = Response()
 	if validate_timestamp(timestamp):
-		if validate_token(token, timestamp, dirs, path, location, remote_addr):
-			response.headers['X-Auth-Token-Path'] = path + '/' + file
-			response.headers['X-Auth-Token-Status'] = 'Valid'
+		if validate_geoip(remote_addr):
+			if validate_token(token, timestamp, dirs, path, location, remote_addr):
+				response.headers['X-Auth-Token-Path'] = path + '/' + file
+				response.headers['X-Auth-Token-Status'] = 'Valid'
+			else:
+				application.logger.warning("Token {} is invalid".format(token))
+				response.headers['X-Auth-Token-Status'] = 'Invalid'
+				response.status_code = 403
 		else:
-			application.logger.warning("Token {} is invalid".format(token))
-			response.headers['X-Auth-Token-Status'] = 'Invalid'
+			application.logger.warning("IP address {} is blacklisted".format(remote_addr))
+			response.headers['X-Auth-Token-Status'] = 'IP Blacklisted'
 			response.status_code = 403
 	else:
 		application.logger.warning("Timestamp {} is invalid".format(timestamp))
 		response.headers['X-Auth-Token-Status'] = 'Invalid'
+		response.status_code = 403
+
+	return response
+
+@application.route('/geoip', methods=['GET'])
+def geoip():
+	if request.headers.getlist("X-Forwarded-For"):
+		remote_addr = request.headers.getlist("X-Forwarded-For")[0]
+	else:
+		remote_addr = request.remote_addr
+
+	response = Response()
+	if validate_geoip(remote_addr):
+		response.headers['X-Auth-GeoIP-Status'] = 'Valid'
+	else:
+		application.logger.warning("IP address {} is blacklisted".format(remote_addr))
+		response.headers['X-Auth-GeoIP-Status'] = 'Blacklisted'
 		response.status_code = 403
 
 	return response
