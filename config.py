@@ -8,3 +8,5 @@ secret = {
 	'lbcgrouplive': 'H3ll0!S3c&8',
 	'salloum': 'djdheylsksjlak248du'
 }
+
+geoip_blacklist = [ 'US', 'AU', 'CA' ]
