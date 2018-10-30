@@ -9,4 +9,8 @@ secret = {
 	'salloum': 'djdheylsksjlak248du'
 }
 
-geoip_blacklist = [ 'US', 'AU', 'CA' ]
+geoip_blacklist_default = []
+geoip_blacklist = {
+	'lbcgrouplive': [ 'US', 'AU', 'CA' ],
+	'salloum': [ 'US', 'RU', 'NL' ]
+}

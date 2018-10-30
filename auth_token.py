@@ -25,7 +25,8 @@ cache_timeout = getattr(config, 'cache_timeout', 60)
 secret_default = getattr(config, 'secret_default', 'my-secret')
 secret = getattr(config, 'secret', {})
 
-geoip_blacklist = getattr(config, 'geoip_blacklist', [])
+geoip_blacklist_default = getattr(config, 'geoip_blacklist_default', [])
+geoip_blacklist = getattr(config, 'geoip_blacklist', {})
 
 def log_param(func, prefix, param):
 	application.logger.debug("{}: {} = {}".format(func, prefix, param))
@@ -37,9 +38,23 @@ def validate_timestamp(timestamp):
 	return now < int(timestamp)
 
 @cache.memoize(timeout=cache_timeout)
-def validate_geoip(remote_addr):
 	log_param('validate_geoip', 'remote_addr', remote_addr)
+def validate_geoip(remote_addr, location):
+	def get_geoip_blacklist(location):
+		if location in geoip_blacklist.keys():
+			application.logger.debug("Found geoip blacklist {} for location {}".format(geoip_blacklist[location], location))
+			return geoip_blacklist[location]
+		else:
+			application.logger.debug("Using default geoip blacklist: {}".format(geoip_blacklist_default))
+			return geoip_blacklist_default
+
 	if remote_addr == '127.0.0.1':
+		application.logger.debug('Skipping geoip check due localhost {}'.format(remote_addr))
+		return True
+
+	blacklist = get_geoip_blacklist(location)
+	if len(blacklist) == 0:
+		application.logger.debug('Skipped geoip check due blacklist is empty')
 		return True
 
 	reader = geoip2.database.Reader('GeoLite2/GeoLite2-Country.mmdb')
@@ -50,7 +65,7 @@ def validate_geoip(remote_addr):
 		return True
 
 	log_param('validate_geoip', 'country', response.country.iso_code)
-	if response.country.iso_code not in geoip_blacklist:
+	if response.country.iso_code not in blacklist:
 		return True
 	else:
 		return False
@@ -135,7 +150,10 @@ def secure_link(token, timestamp, dirs, path, file, location):
 
 	response = Response()
 	if validate_timestamp(timestamp):
-		if validate_geoip(remote_addr):
+
+		if validate_geoip(remote_addr, location):
+			response.headers['X-Auth-GeoIP-Status'] = 'Valid'
+
 			if validate_token(token, timestamp, dirs, path, location):
 				response.headers['X-Auth-Token-Path'] = path + '/' + file
 				response.headers['X-Auth-Token-Status'] = 'Valid'
@@ -173,7 +191,8 @@ def secure_link_ip(token, timestamp, ip, dirs, path, file, location):
 
 	response = Response()
 	if validate_timestamp(timestamp):
-		if validate_geoip(remote_addr):
+		if validate_geoip(remote_addr, location):
+			response.headers['X-Auth-GeoIP-Status'] = 'Valid'
 			if validate_token(token, timestamp, dirs, path, location, remote_addr):
 				response.headers['X-Auth-Token-Path'] = path + '/' + file
 				response.headers['X-Auth-Token-Status'] = 'Valid'
@@ -192,19 +211,31 @@ def secure_link_ip(token, timestamp, ip, dirs, path, file, location):
 
 	return response
 
-@application.route('/geoip', methods=['GET'])
-def geoip():
+@application.route('/<location>/geoip', methods=['GET'])
+def geoip(location):
 	if request.headers.getlist("X-Forwarded-For"):
 		remote_addr = request.headers.getlist("X-Forwarded-For")[0]
 	else:
 		remote_addr = request.remote_addr
 
 	response = Response()
-	if validate_geoip(remote_addr):
+	if validate_geoip(remote_addr, location):
 		response.headers['X-Auth-GeoIP-Status'] = 'Valid'
 	else:
-		application.logger.warning("IP address {} is blacklisted".format(remote_addr))
-		response.headers['X-Auth-GeoIP-Status'] = 'Blacklisted'
+		application.logger.warning('Remote IP {} is banned'.format(remote_addr))
+		response.headers['X-Auth-GeoIP-Status'] = 'Banned'
+		response.status_code = 403
+
+	return response
+
+@application.route('/<location>/geoip/<remote_addr>', methods=['GET'])
+def geoip_remote_addr(location, remote_addr):
+	response = Response()
+	if validate_geoip(remote_addr, location):
+		response.headers['X-Auth-GeoIP-Status'] = 'Valid'
+	else:
+		application.logger.warning('Remote IP {} is banned'.format(remote_addr))
+		response.headers['X-Auth-GeoIP-Status'] = 'Banned'
 		response.status_code = 403
 
 	return response
