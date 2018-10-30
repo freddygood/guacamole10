@@ -147,11 +147,11 @@ def secure_link(token, timestamp, dirs, path, file, location):
 				response.status_code = 403
 		else:
 			application.logger.warning("IP address {} is blacklisted".format(remote_addr))
-			response.headers['X-Auth-Token-Status'] = 'IP Blacklisted'
+			response.headers['X-Auth-GeoIP-Status'] = 'Banned'
 			response.status_code = 403
 	else:
 		application.logger.warning("Timestamp {} is invalid".format(timestamp))
-		response.headers['X-Auth-Token-Status'] = 'Invalid'
+		response.headers['X-Auth-Timestamp-Status'] = 'Invalid'
 		response.status_code = 403
 
 	return response
@@ -180,11 +180,11 @@ def secure_link_ip(token, timestamp, ip, dirs, path, file, location):
 				response.status_code = 403
 		else:
 			application.logger.warning("IP address {} is blacklisted".format(remote_addr))
-			response.headers['X-Auth-Token-Status'] = 'IP Blacklisted'
+			response.headers['X-Auth-GeoIP-Status'] = 'Banned'
 			response.status_code = 403
 	else:
 		application.logger.warning("Timestamp {} is invalid".format(timestamp))
-		response.headers['X-Auth-Token-Status'] = 'Invalid'
+		response.headers['X-Auth-Timestamp-Status'] = 'Invalid'
 		response.status_code = 403
 
 	return response
