@@ -185,6 +185,20 @@ systemctl restart auth_token.service
 restart auth_token.service
 ```
 
+### Reload the configuration (graceful restart)
+
+#### systemd
+
+```
+systemctl reload auth_token.service
+```
+
+#### upstart
+
+```
+reload auth_token.service
+```
+
 ### Deployment
 
 The application might be deployed on the same servers with nginx and on dedicated servers as well.
