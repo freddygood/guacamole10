@@ -7,6 +7,7 @@ ExecStart=/var/lib/auth_token/app/venv/bin/uwsgi --ini /var/lib/auth_token/app/u
 WorkingDirectory=/var/lib/auth_token/app
 Restart=always
 KillSignal=SIGQUIT
+ExecReload=/bin/kill -HUP $MAINPID
 Type=notify
 StandardError=syslog
 NotifyAccess=all
