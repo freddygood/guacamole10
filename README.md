@@ -199,6 +199,15 @@ systemctl reload auth_token.service
 reload auth_token.service
 ```
 
+#### crontab job update GeoIP database
+
+To update db nightly
+
+```
+cp crontab /etc/cron.daily/auth_token_geoip_db_update
+chmod +x /etc/cron.daily/auth_token_geoip_db_update
+```
+
 ### Deployment
 
 The application might be deployed on the same servers with nginx and on dedicated servers as well.
