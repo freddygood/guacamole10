@@ -136,6 +136,11 @@ secret = {
         'salloum': 'djdheylsksjlak248du'
 }
 
+geoip_blacklist_default = []
+geoip_blacklist = {
+        'lbcgrouplive': [ 'US', 'AU', 'CA' ],
+        'salloum': [ 'US', 'RU', 'NL' ]
+}
 ```
 
 - cache_timeout - time to cache validate token function (integer)
@@ -144,6 +149,9 @@ secret = {
 
 - /testlocationlive/token.. - secret `1234567890` will be used
 - /verynicelocation/token.. - secret `qwertyuiop` will be used
+
+- geoip_blacklist_default - default geoip blacklist, usually []
+- geoip_blacklist - geoip blacklist by location (dict of lists)
 
 There is /var/lib/auth_token/app/uwsgi.ini file for configuration uwsgi daemon:
 
@@ -201,7 +209,9 @@ upstream auth_token {
 }
 ```
 
-### Auth location
+### Auth token secured
+
+#### Auth location
 
 Create one location per server
 
@@ -216,7 +226,7 @@ location = /auth_token {
 }
 ```
 
-### Streaming secured location
+#### Streaming secured location
 
 Create the block per each secured location
 
@@ -231,7 +241,7 @@ location @testlocationlive_auth_passed {
 }
 ```
 
-### Token checking service
+#### Token checking service
 
 Only for dev and test purpose - ability to check validity of token and secured URL without hitting any files
 
@@ -246,10 +256,54 @@ location @check_auth_passed {
 }
 ```
 
-### Using token checking service
+#### Using token checking service
 
 Response code 200 or 403
 
 ```
 curl -sv http://nginx.testcdn.yes/_check_auth_token/token=nva=1537000000~dirs=1~hash=06bffd04a860d31992619/testlive.smil/playlist.m3u8
+```
+
+### GeoIP secured
+
+#### GeoIP checking locations setup
+
+Create the block per each secured location
+
+```
+# GeoIP checking testlocationlive location
+location = /testlocationlive/geoip {
+        internal;
+        include uwsgi_params;
+        uwsgi_pass auth_token;
+        uwsgi_pass_request_body off;
+}
+```
+
+Add line to geoip secured location with playlist
+
+```
+auth_request /testlocationlive/geoip;
+```
+
+#### Example
+
+```
+# GeoIP checking location
+location = /testlocationlive/geoip {
+        internal;
+        include uwsgi_params;
+        uwsgi_pass auth_token;
+        uwsgi_pass_request_body off;
+}
+
+location /testlocationlive  {
+        location ~* (\.(m3u8|manifest|Manifest|mpd|dvr|DVR))$ {
+                auth_request      /testlocationlive/geoip;
+                add_header        Chunk-Cache-Status $upstream_cache_status;
+                proxy_cache_valid 200 302  2s;
+                rewrite           ^/testlocationlive/(.+\.(m3u8|manifest|Manifest|mpd|dvr|DVR))$ /testpublish/$1 break;
+                proxy_pass        http://158.179.158.179:11935;
+        }
+...
 ```
