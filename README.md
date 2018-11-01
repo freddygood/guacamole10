@@ -199,7 +199,9 @@ systemctl reload auth_token.service
 reload auth_token.service
 ```
 
-Due upstart doesn't work as expected, to reload run command:
+#### upstart alternative
+
+If upstart reload doesn't work as expected, to reload run command:
 ```
 ps auxf | grep uwsgi
 
