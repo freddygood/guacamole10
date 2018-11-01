@@ -199,6 +199,21 @@ systemctl reload auth_token.service
 reload auth_token.service
 ```
 
+Due upstart doesn't work as expected, to reload run command:
+```
+ps auxf | grep uwsgi
+
+root     13351  0.0  0.0  87776 20636 ?        S    23:08   0:00  \_ uwsgi --ini uwsgi.ini         <- root process
+root     13354  0.0  0.0  87776 14964 ?        S    23:08   0:00      \_ uwsgi --ini uwsgi.ini
+root     13355  0.0  0.0  87776 14968 ?        S    23:08   0:00      \_ uwsgi --ini uwsgi.ini
+root     13356  0.0  0.0  87776 14968 ?        S    23:08   0:00      \_ uwsgi --ini uwsgi.ini
+...
+```
+Locate root process then send him HUP signal
+```
+kill -HUP 13351
+```
+
 #### crontab job update GeoIP database
 
 To update db nightly
