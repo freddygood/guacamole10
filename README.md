@@ -273,6 +273,7 @@ Create the block per each secured location
 ```
 # Secured testlocationlive location
 location /testlocationlive/token {
+        log_not_found off;
         auth_request /auth_token;
         error_page 404 =200 @testlocationlive_auth_passed;
 }
