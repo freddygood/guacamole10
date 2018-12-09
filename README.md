@@ -268,17 +268,47 @@ location = /auth_token {
 
 #### Streaming secured location
 
-Create the block per each secured location
+Create the block per each location
 
 ```
-# Secured testlocationlive location
-location /testlocationlive/token {
-        log_not_found off;
-        auth_request /auth_token;
-        error_page 404 =200 @testlocationlive_auth_passed;
+# Unsecured testlocationlive location
+location /testlocationlive  {
+        return 403;
 }
-location @testlocationlive_auth_passed {
-        rewrite ^(/testlocationlive)/token=.*hash=[a-z0-9]+(/.*)$ $1$2 last;
+
+# Secured test_location_live location
+location /test_location_live/token {
+        location ~* (\.(m3u8|manifest|Manifest|mpd|dvr|DVR))$ {
+                auth_request      /auth_token1;
+                rewrite           ^/test_location_live/token=.*hash=[a-z0-9]+(/.*)$ /test_location_publish$1 break;
+                add_header        Chunk-Cache-Status $upstream_cache_status;
+                proxy_pass        http://test_location_proxy;
+                proxy_cache_valid 200 302  1s;
+        }
+
+        auth_request /auth_token1;
+        rewrite      ^/test_location_live/token=.*hash=[a-z0-9]+(/.*)$ /test_location_publish$1 break;
+
+        proxy_set_header         Host $host;
+        proxy_set_header         X-Real-IP $remote_addr;
+        proxy_set_header         X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header         X-Forwarded-Proto $scheme;
+        add_header               Media-Cache-Status $upstream_cache_status;
+
+        proxy_buffering          on;
+        proxy_ignore_headers Cache-Control;
+        proxy_ignore_headers Set-Cookie;
+        proxy_cache              test_location_zone;
+        proxy_cache_key          $proxy_host$uri;
+        proxy_cache_use_stale    error timeout invalid_header updating http_500 http_502 http_503 http_504;
+        proxy_cache_valid        200 302  5m;
+        proxy_cache_valid        404      5s;
+        proxy_cache_revalidate off;
+        proxy_cache_lock         on;
+        proxy_cache_lock_age     1s;
+        proxy_cache_lock_timeout 2s;
+        proxy_read_timeout       500s;
+        proxy_pass               http://test_location_proxy;
 }
 ```
 
