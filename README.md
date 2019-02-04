@@ -4,6 +4,46 @@
 
 ### Creating token signature with bash
 
+#### Test location
+
+```
+secret="qwerty123"
+location="/test"
+path="/lbclive.smil/"
+nva="1550000000"
+dirs="1"
+file="playlist.m3u8"
+token=$(echo -n "${path}?nva=${nva}&dirs=${dirs}" | openssl sha1 -hmac $secret -binary | xxd -p | cut -c1-20)
+```
+
+##### IPv4
+
+```
+secret="qwerty123"
+location="/test"
+path="/lbclive.smil/"
+nva="1550000000"
+ip="127.0.0.1"
+dirs="1"
+file="playlist.m3u8"
+token=$(echo -n "${path}?nva=${nva}&ip=${ip}&dirs=${dirs}" | openssl sha1 -hmac $secret -binary | xxd -p | cut -c1-20)
+```
+
+##### IPv6
+
+```
+secret="qwerty123"
+location="/test"
+path="/lbclive.smil/"
+nva="1550000000"
+ip="::1"
+dirs="1"
+file="playlist.m3u8"
+token=$(echo -n "${path}?nva=${nva}&ip=${ip}&dirs=${dirs}" | openssl sha1 -hmac $secret -binary | xxd -p | cut -c1-20)
+```
+
+#### Example location
+
 ```
 secret='1234567890'
 location="/testlocationlive"
