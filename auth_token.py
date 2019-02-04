@@ -44,7 +44,7 @@ def validate_geoip(remote_addr, location):
 			application.logger.debug("Using default geoip blacklist: {}".format(geoip_blacklist_default))
 			return geoip_blacklist_default
 
-	if remote_addr == '127.0.0.1':
+	if remote_addr in ['127.0.0.1', '::1']:
 		application.logger.debug('Skipping geoip check due localhost {}'.format(remote_addr))
 		return True
 
@@ -131,6 +131,9 @@ def secure_link(token, timestamp, dirs, path, file, location):
 	else:
 		remote_addr = request.remote_addr
 
+	if remote_addr[:7] == "::ffff:":
+		remote_addr = remote_addr[7:]
+
 	response = Response()
 	if validate_timestamp(timestamp):
 		response.headers['X-Auth-Timestamp-Status'] = 'Valid'
@@ -163,6 +166,9 @@ def secure_link_ip(token, timestamp, ip, dirs, path, file, location):
 		remote_addr = request.headers.getlist("X-Forwarded-For")[0]
 	else:
 		remote_addr = request.remote_addr
+
+	if remote_addr[:7] == "::ffff:":
+		remote_addr = remote_addr[7:]
 
 	response = Response()
 	if validate_timestamp(timestamp):

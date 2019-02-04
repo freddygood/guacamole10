@@ -1,4 +1,4 @@
-host = '0.0.0.0'
+host = '::'
 port = 8080
 debug = True
 cache_timeout=60
