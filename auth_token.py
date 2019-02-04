@@ -84,11 +84,13 @@ echo "/token=nva=$nva~ip=$ip~dirs=$dirs~hash=0$token$path$file"
 """
 
 def validate_token(token, timestamp, dirs, path, location, remote_addr = ''):
-	calculated_token = calculate_token(timestamp, dirs, path, location, remote_addr)
+	calculated_token = calculate_token(timestamp, dirs, path, location, remote_addr)[0:20]
+	application.logger.debug("Given token is {}".format(token))
+	application.logger.debug("Calculated token is {}".format(calculated_token))
 	if (hasattr(hmac, 'compare_digest')):
-		return hmac.compare_digest(calculated_token[0:20].encode(), token.encode())
+		return hmac.compare_digest(calculated_token.encode(), token.encode())
 	else:
-		return calculated_token[0:20].encode() == token.encode()
+		return calculated_token.encode() == token.encode()
 
 @cache.memoize(timeout=cache_timeout)
 def calculate_token(timestamp, dirs, path, location, remote_addr):
